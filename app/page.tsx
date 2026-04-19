@@ -1,6 +1,7 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
+import useSWR from "swr"
 import { FileText, Loader2, Router, Search } from "lucide-react"
 
 import { Input } from "@/components/ui/input"
@@ -8,28 +9,22 @@ import { PdfViewer } from "@/components/pdf-viewer"
 import { RouterCard } from "@/components/router-card"
 import { RouterForm } from "@/components/router-form"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { getAllManuals, type RouterManual } from "@/lib/router-storage"
+import type { Manual } from "@/lib/types"
+
+const fetcher = async (url: string): Promise<{ manuals: Manual[] }> => {
+  const res = await fetch(url)
+  if (!res.ok) throw new Error("Failed to load manuals")
+  return res.json()
+}
 
 export default function HomePage() {
-  const [manuals, setManuals] = useState<RouterManual[]>([])
-  const [loading, setLoading] = useState(true)
+  const { data, isLoading, mutate } = useSWR("/api/manuals", fetcher, {
+    revalidateOnFocus: false,
+  })
+  const manuals = data?.manuals ?? []
+
   const [query, setQuery] = useState("")
-  const [viewing, setViewing] = useState<RouterManual | null>(null)
-
-  const loadManuals = useCallback(async () => {
-    try {
-      const all = await getAllManuals()
-      setManuals(all)
-    } catch (err) {
-      console.error("[v0] getAllManuals error:", err)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    loadManuals()
-  }, [loadManuals])
+  const [viewing, setViewing] = useState<Manual | null>(null)
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -87,12 +82,12 @@ export default function HomePage() {
                 aria-label="Pesquisar manuais"
               />
             </div>
-            <RouterForm onCreated={loadManuals} />
+            <RouterForm onCreated={() => mutate()} />
           </div>
         </section>
 
         {/* Content */}
-        {loading ? (
+        {isLoading ? (
           <div className="flex min-h-[40vh] items-center justify-center text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             Carregando manuais...
@@ -111,7 +106,7 @@ export default function HomePage() {
                 key={manual.id}
                 manual={manual}
                 onView={setViewing}
-                onDeleted={loadManuals}
+                onDeleted={() => mutate()}
               />
             ))}
           </section>

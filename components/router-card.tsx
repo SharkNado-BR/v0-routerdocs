@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { Download, Eye, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -17,56 +17,52 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { deleteManual, type RouterManual } from "@/lib/router-storage"
+import type { Manual } from "@/lib/types"
 
 type Props = {
-  manual: RouterManual
-  onView: (manual: RouterManual) => void
+  manual: Manual
+  onView: (manual: Manual) => void
   onDeleted: () => void
 }
 
 export function RouterCard({ manual, onView, onDeleted }: Props) {
-  const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
-
-  useEffect(() => {
-    if (!manual.imageBlob) {
-      setImageUrl(null)
-      return
-    }
-    const objectUrl = URL.createObjectURL(manual.imageBlob)
-    setImageUrl(objectUrl)
-    return () => {
-      URL.revokeObjectURL(objectUrl)
-    }
-  }, [manual.imageBlob])
 
   async function handleDelete() {
     setDeleting(true)
     try {
-      await deleteManual(manual.id)
+      const res = await fetch(`/api/manuals/${manual.id}`, { method: "DELETE" })
+      if (!res.ok) throw new Error("Falha ao remover")
       toast.success("Manual removido.")
       onDeleted()
     } catch (err) {
-      console.error("[v0] deleteManual error:", err)
+      console.error("[v0] delete manual error:", err)
       toast.error("Falha ao remover manual.")
     } finally {
       setDeleting(false)
     }
   }
 
-  function handleDownload() {
-    const url = URL.createObjectURL(manual.pdfBlob)
-    const a = document.createElement("a")
-    a.href = url
-    const safeName =
-      manual.pdfName ||
-      `${manual.brand}-${manual.model}.pdf`.replace(/\s+/g, "-").toLowerCase()
-    a.download = safeName
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  async function handleDownload() {
+    try {
+      const res = await fetch(manual.pdfUrl)
+      if (!res.ok) throw new Error("Falha no download")
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      const safeName =
+        manual.pdfFilename ||
+        `${manual.brand}-${manual.model}.pdf`.replace(/\s+/g, "-").toLowerCase()
+      a.download = safeName
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+    } catch (err) {
+      console.error("[v0] download error:", err)
+      toast.error("Não foi possível baixar o PDF.")
+    }
   }
 
   return (
@@ -74,7 +70,7 @@ export function RouterCard({ manual, onView, onDeleted }: Props) {
       <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={imageUrl || "/placeholder.svg"}
+          src={manual.imageUrl || "/placeholder.svg"}
           alt={`Foto do roteador ${manual.brand} ${manual.model}`}
           className="h-full w-full object-contain p-4 transition-transform duration-300 group-hover:scale-105"
         />
@@ -97,7 +93,7 @@ export function RouterCard({ manual, onView, onDeleted }: Props) {
                 <span className="font-medium text-foreground">
                   {manual.brand} {manual.model}
                 </span>{" "}
-                serão apagados do seu navegador.
+                serão apagados para todos os usuários.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

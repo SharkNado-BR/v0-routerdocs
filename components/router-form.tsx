@@ -17,7 +17,6 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { addManual, type RouterManual } from "@/lib/router-storage"
 import { cn } from "@/lib/utils"
 
 type Props = {
@@ -85,28 +84,31 @@ export function RouterForm({ onCreated }: Props) {
 
     setSubmitting(true)
     try {
-      const manual: RouterManual = {
-        id:
-          typeof crypto !== "undefined" && "randomUUID" in crypto
-            ? crypto.randomUUID()
-            : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        brand: brand.trim(),
-        model: model.trim(),
-        createdAt: Date.now(),
-        imageBlob: imageFile,
-        imageType: imageFile.type || "image/jpeg",
-        pdfBlob: pdfFile,
-        pdfType: pdfFile.type || "application/pdf",
-        pdfName: pdfFile.name,
+      const formData = new FormData()
+      formData.append("brand", brand.trim())
+      formData.append("model", model.trim())
+      formData.append("image", imageFile)
+      formData.append("pdf", pdfFile)
+
+      const res = await fetch("/api/manuals", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}))
+        throw new Error(payload.error ?? "Falha no upload")
       }
-      await addManual(manual)
+
       toast.success("Manual adicionado com sucesso.")
       onCreated()
       resetForm()
       setOpen(false)
     } catch (err) {
-      console.error("[v0] addManual error:", err)
-      toast.error("Não foi possível salvar o manual.")
+      console.error("[v0] create manual error:", err)
+      toast.error(
+        err instanceof Error ? err.message : "Não foi possível salvar o manual.",
+      )
       setSubmitting(false)
     }
   }
@@ -255,7 +257,7 @@ export function RouterForm({ onCreated }: Props) {
               {submitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Salvando
+                  Enviando
                 </>
               ) : (
                 "Salvar manual"
