@@ -1,34 +1,19 @@
 "use client"
 
-import { useEffect, useState } from "react"
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import type { RouterManual } from "@/lib/router-storage"
+import type { Manual } from "@/lib/types"
 
 type Props = {
-  manual: RouterManual | null
+  manual: Manual | null
   onOpenChange: (open: boolean) => void
 }
 
 export function PdfViewer({ manual, onOpenChange }: Props) {
-  const [url, setUrl] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!manual) {
-      setUrl(null)
-      return
-    }
-    const objectUrl = URL.createObjectURL(manual.pdfBlob)
-    setUrl(objectUrl)
-    return () => {
-      URL.revokeObjectURL(objectUrl)
-    }
-  }, [manual])
-
   return (
     <Dialog open={!!manual} onOpenChange={onOpenChange}>
       <DialogContent className="flex h-[90vh] max-w-5xl flex-col gap-3 p-4 sm:p-5">
@@ -38,10 +23,10 @@ export function PdfViewer({ manual, onOpenChange }: Props) {
           </DialogTitle>
         </DialogHeader>
         <div className="h-full w-full overflow-hidden rounded-md border border-border bg-muted">
-          {url ? (
+          {manual ? (
             <iframe
-              src={url}
-              title={`Manual ${manual?.brand} ${manual?.model}`}
+              src={manual.pdfUrl}
+              title={`Manual ${manual.brand} ${manual.model}`}
               className="h-full w-full"
             />
           ) : null}

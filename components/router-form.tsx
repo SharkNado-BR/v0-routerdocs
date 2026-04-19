@@ -2,6 +2,7 @@
 
 import type React from "react"
 import { useRef, useState } from "react"
+import { upload } from "@vercel/blob/client"
 import { FileText, ImageIcon, Loader2, Plus, Upload, X } from "lucide-react"
 import { toast } from "sonner"
 
@@ -17,7 +18,6 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { addManual, type RouterManual } from "@/lib/router-storage"
 import { cn } from "@/lib/utils"
 
 type Props = {
@@ -85,28 +85,64 @@ export function RouterForm({ onCreated }: Props) {
 
     setSubmitting(true)
     try {
-      const manual: RouterManual = {
-        id:
-          typeof crypto !== "undefined" && "randomUUID" in crypto
-            ? crypto.randomUUID()
-            : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        brand: brand.trim(),
-        model: model.trim(),
-        createdAt: Date.now(),
-        imageBlob: imageFile,
-        imageType: imageFile.type || "image/jpeg",
-        pdfBlob: pdfFile,
-        pdfType: pdfFile.type || "application/pdf",
-        pdfName: pdfFile.name,
+      const safeBrand = brand.trim().replace(/[^\w-]+/g, "_").toLowerCase()
+      const safeModel = model.trim().replace(/[^\w-]+/g, "_").toLowerCase()
+      const stamp = Date.now()
+
+      // 1. Upload image directly from the browser to Vercel Blob.
+      const imageExt = (imageFile.name.split(".").pop() ?? "jpg").toLowerCase()
+      const imageBlob = await upload(
+        `manuals/${safeBrand}/${safeModel}/${stamp}-image.${imageExt}`,
+        imageFile,
+        {
+          access: "public",
+          handleUploadUrl: "/api/blob/upload",
+          contentType: imageFile.type || "image/jpeg",
+        },
+      )
+
+      // 2. Upload PDF directly from the browser to Vercel Blob.
+      const safePdfName = pdfFile.name.replace(/[^\w.-]+/g, "_")
+      const pdfBlob = await upload(
+        `manuals/${safeBrand}/${safeModel}/${stamp}-${safePdfName}`,
+        pdfFile,
+        {
+          access: "public",
+          handleUploadUrl: "/api/blob/upload",
+          contentType: "application/pdf",
+        },
+      )
+
+      // 3. Send only the URLs/metadata to the API.
+      const res = await fetch("/api/manuals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          brand: brand.trim(),
+          model: model.trim(),
+          imageUrl: imageBlob.url,
+          imagePathname: imageBlob.pathname,
+          pdfUrl: pdfBlob.url,
+          pdfPathname: pdfBlob.pathname,
+          pdfFilename: pdfFile.name,
+          pdfSize: pdfFile.size,
+        }),
+      })
+
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}))
+        throw new Error(payload.error ?? "Falha ao salvar o manual.")
       }
-      await addManual(manual)
+
       toast.success("Manual adicionado com sucesso.")
       onCreated()
       resetForm()
       setOpen(false)
     } catch (err) {
-      console.error("[v0] addManual error:", err)
-      toast.error("Não foi possível salvar o manual.")
+      console.error("[v0] create manual error:", err)
+      toast.error(
+        err instanceof Error ? err.message : "Não foi possível salvar o manual.",
+      )
       setSubmitting(false)
     }
   }
@@ -255,7 +291,7 @@ export function RouterForm({ onCreated }: Props) {
               {submitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Salvando
+                  Enviando
                 </>
               ) : (
                 "Salvar manual"
