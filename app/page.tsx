@@ -71,7 +71,7 @@ export default function HomePage() {
             <p className="text-sm text-muted-foreground">
               {manuals.length > 0
                 ? `${manuals.length} ${manuals.length === 1 ? "manual cadastrado" : "manuais cadastrados"}`
-                : "Comece adicionando o seu primeiro manual"}
+                : ""}
             </p>
           </div>
 
