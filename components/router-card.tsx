@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { Download, Eye, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -26,18 +26,20 @@ type Props = {
 }
 
 export function RouterCard({ manual, onView, onDeleted }: Props) {
-  const imageUrl = useMemo(
-    () => URL.createObjectURL(manual.imageBlob),
-    [manual.imageBlob],
-  )
+  const [imageUrl, setImageUrl] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
-    return () => {
-      URL.revokeObjectURL(imageUrl)
+    if (!manual.imageBlob) {
+      setImageUrl(null)
+      return
     }
-  }, [imageUrl])
-
-  const [deleting, setDeleting] = useState(false)
+    const objectUrl = URL.createObjectURL(manual.imageBlob)
+    setImageUrl(objectUrl)
+    return () => {
+      URL.revokeObjectURL(objectUrl)
+    }
+  }, [manual.imageBlob])
 
   async function handleDelete() {
     setDeleting(true)
