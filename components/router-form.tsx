@@ -2,6 +2,7 @@
 
 import type React from "react"
 import { useRef, useState } from "react"
+import { upload } from "@vercel/blob/client"
 import { FileText, ImageIcon, Loader2, Plus, Upload, X } from "lucide-react"
 import { toast } from "sonner"
 
@@ -84,20 +85,53 @@ export function RouterForm({ onCreated }: Props) {
 
     setSubmitting(true)
     try {
-      const formData = new FormData()
-      formData.append("brand", brand.trim())
-      formData.append("model", model.trim())
-      formData.append("image", imageFile)
-      formData.append("pdf", pdfFile)
+      const safeBrand = brand.trim().replace(/[^\w-]+/g, "_").toLowerCase()
+      const safeModel = model.trim().replace(/[^\w-]+/g, "_").toLowerCase()
+      const stamp = Date.now()
 
+      // 1. Upload image directly from the browser to Vercel Blob.
+      const imageExt = (imageFile.name.split(".").pop() ?? "jpg").toLowerCase()
+      const imageBlob = await upload(
+        `manuals/${safeBrand}/${safeModel}/${stamp}-image.${imageExt}`,
+        imageFile,
+        {
+          access: "public",
+          handleUploadUrl: "/api/blob/upload",
+          contentType: imageFile.type || "image/jpeg",
+        },
+      )
+
+      // 2. Upload PDF directly from the browser to Vercel Blob.
+      const safePdfName = pdfFile.name.replace(/[^\w.-]+/g, "_")
+      const pdfBlob = await upload(
+        `manuals/${safeBrand}/${safeModel}/${stamp}-${safePdfName}`,
+        pdfFile,
+        {
+          access: "public",
+          handleUploadUrl: "/api/blob/upload",
+          contentType: "application/pdf",
+        },
+      )
+
+      // 3. Send only the URLs/metadata to the API.
       const res = await fetch("/api/manuals", {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          brand: brand.trim(),
+          model: model.trim(),
+          imageUrl: imageBlob.url,
+          imagePathname: imageBlob.pathname,
+          pdfUrl: pdfBlob.url,
+          pdfPathname: pdfBlob.pathname,
+          pdfFilename: pdfFile.name,
+          pdfSize: pdfFile.size,
+        }),
       })
 
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}))
-        throw new Error(payload.error ?? "Falha no upload")
+        throw new Error(payload.error ?? "Falha ao salvar o manual.")
       }
 
       toast.success("Manual adicionado com sucesso.")
