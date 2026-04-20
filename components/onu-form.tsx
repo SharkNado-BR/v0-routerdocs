@@ -3,7 +3,7 @@
 import type React from "react"
 import { useRef, useState } from "react"
 import { upload } from "@vercel/blob/client"
-import { FileText, ImageIcon, Loader2, Plus, Upload, X } from "lucide-react"
+import { ImageIcon, Loader2, Plus, X } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -29,23 +29,20 @@ type Props = {
   onCreated: () => void
 }
 
-export function RouterForm({ onCreated }: Props) {
+export function OnuForm({ onCreated }: Props) {
   const [open, setOpen] = useState(false)
   const [brand, setBrand] = useState("")
   const [model, setModel] = useState("")
   const [images, setImages] = useState<ImagePreview[]>([])
-  const [pdfFile, setPdfFile] = useState<File | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
   const imageInputRef = useRef<HTMLInputElement>(null)
-  const pdfInputRef = useRef<HTMLInputElement>(null)
 
   function resetForm() {
     setBrand("")
     setModel("")
     images.forEach((img) => URL.revokeObjectURL(img.preview))
     setImages([])
-    setPdfFile(null)
     setSubmitting(false)
   }
 
@@ -79,28 +76,14 @@ export function RouterForm({ onCreated }: Props) {
     })
   }
 
-  function handlePdfChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0] ?? null
-    if (!file) return
-    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
-      toast.error("Selecione um arquivo PDF válido.")
-      return
-    }
-    setPdfFile(file)
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!brand.trim() || !model.trim()) {
-      toast.error("Informe a marca e o modelo do roteador.")
+      toast.error("Informe a marca e o modelo da ONU.")
       return
     }
     if (images.length === 0) {
       toast.error("Envie pelo menos uma imagem do produto.")
-      return
-    }
-    if (!pdfFile) {
-      toast.error("Envie o manual em PDF.")
       return
     }
 
@@ -110,12 +93,12 @@ export function RouterForm({ onCreated }: Props) {
       const safeModel = model.trim().replace(/[^\w-]+/g, "_").toLowerCase()
       const stamp = Date.now()
 
-      // 1. Upload all images directly from the browser to Vercel Blob.
+      // Upload all images
       const uploadedImages = await Promise.all(
         images.map(async (img, idx) => {
           const ext = (img.file.name.split(".").pop() ?? "jpg").toLowerCase()
           const blob = await upload(
-            `manuals/${safeBrand}/${safeModel}/${stamp}-${idx}.${ext}`,
+            `onus/${safeBrand}/${safeModel}/${stamp}-${idx}.${ext}`,
             img.file,
             {
               access: "public",
@@ -130,46 +113,30 @@ export function RouterForm({ onCreated }: Props) {
         }),
       )
 
-      // 2. Upload PDF directly from the browser to Vercel Blob.
-      const safePdfName = pdfFile.name.replace(/[^\w.-]+/g, "_")
-      const pdfBlob = await upload(
-        `manuals/${safeBrand}/${safeModel}/${stamp}-${safePdfName}`,
-        pdfFile,
-        {
-          access: "public",
-          handleUploadUrl: "/api/blob/upload",
-          contentType: "application/pdf",
-        },
-      )
-
-      // 3. Send only the URLs/metadata to the API.
-      const res = await fetch("/api/manuals", {
+      // Send to API
+      const res = await fetch("/api/onus", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           brand: brand.trim(),
           model: model.trim(),
           images: uploadedImages,
-          pdfUrl: pdfBlob.url,
-          pdfPathname: pdfBlob.pathname,
-          pdfFilename: pdfFile.name,
-          pdfSize: pdfFile.size,
         }),
       })
 
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}))
-        throw new Error(payload.error ?? "Falha ao salvar o manual.")
+        throw new Error(payload.error ?? "Falha ao salvar a ONU.")
       }
 
-      toast.success("Manual adicionado com sucesso.")
+      toast.success("ONU adicionada com sucesso.")
       onCreated()
       resetForm()
       setOpen(false)
     } catch (err) {
-      console.error("[v0] create manual error:", err)
+      console.error("[v0] create onu error:", err)
       toast.error(
-        err instanceof Error ? err.message : "Não foi possível salvar o manual.",
+        err instanceof Error ? err.message : "Não foi possível salvar a ONU.",
       )
       setSubmitting(false)
     }
@@ -186,34 +153,34 @@ export function RouterForm({ onCreated }: Props) {
       <DialogTrigger asChild>
         <Button className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm">
           <Plus className="mr-2 h-4 w-4" />
-          Novo Manual
+          Nova ONU
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Adicionar novo manual</DialogTitle>
+          <DialogTitle>Adicionar nova ONU</DialogTitle>
           <DialogDescription>
-            Cadastre um roteador com suas imagens e o PDF do manual.
+            Cadastre uma ONU com suas fotos para referência.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="brand">Marca</Label>
+              <Label htmlFor="onu-brand">Marca</Label>
               <Input
-                id="brand"
-                placeholder="TP-Link"
+                id="onu-brand"
+                placeholder="Huawei"
                 value={brand}
                 onChange={(e) => setBrand(e.target.value)}
                 required
               />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="model">Modelo</Label>
+              <Label htmlFor="onu-model">Modelo</Label>
               <Input
-                id="model"
-                placeholder="Archer C60"
+                id="onu-model"
+                placeholder="HG8145V5"
                 value={model}
                 onChange={(e) => setModel(e.target.value)}
                 required
@@ -268,51 +235,8 @@ export function RouterForm({ onCreated }: Props) {
               className="hidden"
             />
             <p className="text-xs text-muted-foreground">
-              Você pode adicionar várias fotos do roteador.
+              Você pode adicionar várias fotos da ONU.
             </p>
-          </div>
-
-          {/* PDF uploader */}
-          <div className="flex flex-col gap-2">
-            <Label>Manual (PDF)</Label>
-            <div className="flex flex-col gap-2">
-              <button
-                type="button"
-                onClick={() => pdfInputRef.current?.click()}
-                className="flex min-h-20 w-full items-center justify-center gap-2 rounded-md border border-dashed border-border bg-muted/40 p-4 text-sm text-muted-foreground transition-colors hover:border-primary hover:bg-accent/40 hover:text-foreground"
-              >
-                <Upload className="h-4 w-4" />
-                {pdfFile ? "Trocar arquivo PDF" : "Selecionar arquivo PDF"}
-              </button>
-              {pdfFile ? (
-                <div className="flex items-center justify-between rounded-md border border-border bg-card px-3 py-2 text-sm">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <FileText className="h-4 w-4 shrink-0 text-primary" />
-                    <span className="truncate">{pdfFile.name}</span>
-                    <span className="shrink-0 text-xs text-muted-foreground">
-                      {(pdfFile.size / (1024 * 1024)).toFixed(1)} MB
-                    </span>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={() => setPdfFile(null)}
-                    aria-label="Remover PDF"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              ) : null}
-            </div>
-            <input
-              ref={pdfInputRef}
-              type="file"
-              accept="application/pdf,.pdf"
-              onChange={handlePdfChange}
-              className="hidden"
-            />
           </div>
 
           <DialogFooter>
@@ -334,7 +258,7 @@ export function RouterForm({ onCreated }: Props) {
                   Enviando
                 </>
               ) : (
-                "Salvar manual"
+                "Salvar ONU"
               )}
             </Button>
           </DialogFooter>
