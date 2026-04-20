@@ -53,11 +53,24 @@ export type ManualWithImagesRow = ManualRow & {
 }
 
 export function rowToManual(row: ManualWithImagesRow): Manual {
+  // Fallback: if no images in manual_images table, use the legacy image_url from manuals table
+  let images: ImageItem[] = (row.manual_images || []).map(rowToImage)
+  if (images.length === 0 && row.image_url && row.image_pathname) {
+    images = [
+      {
+        id: `legacy-${row.id}`,
+        imageUrl: row.image_url,
+        imagePathname: row.image_pathname,
+        sortOrder: 0,
+      },
+    ]
+  }
+
   return {
     id: row.id,
     brand: row.brand,
     model: row.model,
-    images: (row.manual_images || []).map(rowToImage),
+    images,
     pdfUrl: row.pdf_url,
     pdfPathname: row.pdf_pathname,
     pdfFilename: row.pdf_filename,

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Download, Eye, Trash2 } from "lucide-react"
+import { Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -19,15 +19,14 @@ import {
 } from "@/components/ui/alert-dialog"
 import { ImageCarousel } from "@/components/image-carousel"
 import { ImageFullscreen } from "@/components/image-fullscreen"
-import type { Manual } from "@/lib/types"
+import type { Onu } from "@/lib/types"
 
 type Props = {
-  manual: Manual
-  onView: (manual: Manual) => void
+  onu: Onu
   onDeleted: () => void
 }
 
-export function RouterCard({ manual, onView, onDeleted }: Props) {
+export function OnuCard({ onu, onDeleted }: Props) {
   const [deleting, setDeleting] = useState(false)
   const [fullscreenOpen, setFullscreenOpen] = useState(false)
   const [fullscreenIndex, setFullscreenIndex] = useState(0)
@@ -35,37 +34,15 @@ export function RouterCard({ manual, onView, onDeleted }: Props) {
   async function handleDelete() {
     setDeleting(true)
     try {
-      const res = await fetch(`/api/manuals/${manual.id}`, { method: "DELETE" })
+      const res = await fetch(`/api/onus/${onu.id}`, { method: "DELETE" })
       if (!res.ok) throw new Error("Falha ao remover")
-      toast.success("Manual removido.")
+      toast.success("ONU removida.")
       onDeleted()
     } catch (err) {
-      console.error("[v0] delete manual error:", err)
-      toast.error("Falha ao remover manual.")
+      console.error("[v0] delete ONU error:", err)
+      toast.error("Falha ao remover ONU.")
     } finally {
       setDeleting(false)
-    }
-  }
-
-  async function handleDownload() {
-    try {
-      const res = await fetch(manual.pdfUrl)
-      if (!res.ok) throw new Error("Falha no download")
-      const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      const safeName =
-        manual.pdfFilename ||
-        `${manual.brand}-${manual.model}.pdf`.replace(/\s+/g, "-").toLowerCase()
-      a.download = safeName
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      setTimeout(() => URL.revokeObjectURL(url), 1000)
-    } catch (err) {
-      console.error("[v0] download error:", err)
-      toast.error("Não foi possível baixar o PDF.")
     }
   }
 
@@ -79,8 +56,8 @@ export function RouterCard({ manual, onView, onDeleted }: Props) {
       <Card className="group flex flex-col overflow-hidden border-border bg-card transition-colors hover:border-primary/50">
         <div className="relative aspect-video w-full overflow-hidden bg-muted">
           <ImageCarousel
-            images={manual.images}
-            alt={`${manual.brand} ${manual.model}`}
+            images={onu.images}
+            alt={`${onu.brand} ${onu.model}`}
             onImageClick={handleImageClick}
             className="h-full w-full"
           />
@@ -90,20 +67,20 @@ export function RouterCard({ manual, onView, onDeleted }: Props) {
                 variant="ghost"
                 size="icon"
                 className="absolute right-2 top-2 h-8 w-8 z-10 opacity-0 transition-opacity hover:bg-destructive hover:text-destructive-foreground group-hover:opacity-100"
-                aria-label="Remover manual"
+                aria-label="Remover ONU"
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Remover este manual?</AlertDialogTitle>
+                <AlertDialogTitle>Remover esta ONU?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Esta ação não pode ser desfeita. O arquivo PDF e as imagens do roteador{" "}
+                  Esta ação não pode ser desfeita. As imagens da ONU{" "}
                   <span className="font-medium text-foreground">
-                    {manual.brand} {manual.model}
+                    {onu.brand} {onu.model}
                   </span>{" "}
-                  serão apagados para todos os usuários.
+                  serão apagadas para todos os usuários.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -123,41 +100,24 @@ export function RouterCard({ manual, onView, onDeleted }: Props) {
         <div className="flex flex-1 flex-col gap-4 p-4">
           <div className="flex flex-col gap-1">
             <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              {manual.brand}
+              {onu.brand}
             </span>
             <h3 className="text-base font-semibold text-balance text-foreground">
-              {manual.model}
+              {onu.model}
             </h3>
           </div>
 
-          <div className="mt-auto grid grid-cols-2 gap-2">
-            <Button
-              variant="default"
-              size="sm"
-              onClick={() => onView(manual)}
-              className="w-full"
-            >
-              <Eye className="mr-1.5 h-4 w-4" />
-              Visualizar
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleDownload}
-              className="w-full"
-            >
-              <Download className="mr-1.5 h-4 w-4" />
-              Download
-            </Button>
-          </div>
+          <p className="text-xs text-muted-foreground">
+            {onu.images.length} {onu.images.length === 1 ? "imagem" : "imagens"}
+          </p>
         </div>
       </Card>
 
       {/* Fullscreen image viewer */}
       {fullscreenOpen && (
         <ImageFullscreen
-          images={manual.images}
-          alt={`${manual.brand} ${manual.model}`}
+          images={onu.images}
+          alt={`${onu.brand} ${onu.model}`}
           currentIndex={fullscreenIndex}
           onIndexChange={setFullscreenIndex}
           onClose={() => setFullscreenOpen(false)}
