@@ -77,7 +77,7 @@ export function RouterCard({ manual, onView, onDeleted }: Props) {
   return (
     <>
       <Card className="group flex flex-col overflow-hidden border-border bg-card transition-colors hover:border-primary/50">
-        <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+        <div className="relative aspect-video w-full overflow-hidden bg-muted">
           <ImageCarousel
             images={manual.images}
             alt={`${manual.brand} ${manual.model}`}
