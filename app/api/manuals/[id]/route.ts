@@ -11,9 +11,10 @@ export async function DELETE(
   const { id } = await params
   const supabase = await createClient()
 
+  // Fetch manual and all its images
   const { data: manual, error: fetchError } = await supabase
     .from("manuals")
-    .select("image_url, pdf_url")
+    .select("pdf_url, manual_images(image_url)")
     .eq("id", id)
     .single()
 
@@ -21,6 +22,7 @@ export async function DELETE(
     return NextResponse.json({ error: "Manual not found" }, { status: 404 })
   }
 
+  // Delete the manual (cascade will delete manual_images rows)
   const { error: deleteError } = await supabase
     .from("manuals")
     .delete()
@@ -31,9 +33,15 @@ export async function DELETE(
     return NextResponse.json({ error: deleteError.message }, { status: 500 })
   }
 
-  // Best-effort blob cleanup; don't fail the request if blobs were already gone.
+  // Best-effort blob cleanup
+  const blobUrls = [
+    manual.pdf_url,
+    ...((manual.manual_images as { image_url: string }[]) || []).map(
+      (img) => img.image_url,
+    ),
+  ]
   await Promise.all(
-    [manual.image_url, manual.pdf_url].map((url) =>
+    blobUrls.map((url) =>
       del(url).catch((err) => console.error("[v0] Blob cleanup failed:", err)),
     ),
   )
