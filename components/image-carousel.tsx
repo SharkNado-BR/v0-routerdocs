@@ -56,9 +56,9 @@ export function ImageCarousel({
         aria-label={`Ver ${alt} em tela cheia`}
       >
         <img
-          src={images[currentIndex].imageUrl}
+          src={images[currentIndex].imageUrl || "/placeholder.svg"}
           alt={`${alt} - Imagem ${currentIndex + 1}`}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-contain"
         />
       </button>
 
